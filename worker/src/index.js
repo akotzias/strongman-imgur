@@ -5,7 +5,7 @@ const MORECHILDREN_BATCH = 100;
 const STATE_KEY = "state";
 const DATA_KEY = "data";
 const THREADS_URL = "https://akotzias.github.io/strongman-imgur/threads.json";
-const TIME_BUDGET_MS = 20_000;
+const TIME_BUDGET_MS = 8_000;
 
 const cors = {
   "access-control-allow-origin": "*",
@@ -27,33 +27,45 @@ async function ghPushFile(env, path, content, commitMessage) {
     "Accept": "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
   };
-
-  let sha = null;
-  let existing = null;
-  const getRes = await fetch(url, { headers });
-  if (getRes.ok) {
-    const meta = await getRes.json();
-    sha = meta.sha;
-    existing = (meta.content || "").replace(/\s/g, "");
-  } else if (getRes.status !== 404) {
-    throw new Error(`GH GET ${path} ${getRes.status}`);
-  }
-
+  const shaKey = `gh-sha:${path}`;
   const newB64 = utf8ToBase64(content);
-  if (existing && existing === newB64) {
-    return { path, status: "unchanged" };
+
+  const tryPut = (sha) =>
+    fetch(url, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({
+        message: commitMessage,
+        content: newB64,
+        ...(sha ? { sha } : {}),
+      }),
+    });
+
+  let sha = (await env.IMGUR_KV.get(shaKey)) || null;
+  let res = await tryPut(sha);
+
+  if (res.status === 409 || res.status === 422) {
+    // SHA missing/stale — fetch a fresh one and retry once.
+    const getRes = await fetch(url, { headers });
+    if (getRes.ok) {
+      const meta = await getRes.json();
+      sha = meta.sha;
+    } else if (getRes.status === 404) {
+      sha = null;
+    } else {
+      throw new Error(`GH GET ${path} ${getRes.status}`);
+    }
+    res = await tryPut(sha);
   }
 
-  const body = JSON.stringify({
-    message: commitMessage,
-    content: newB64,
-    ...(sha ? { sha } : {}),
-  });
-  const putRes = await fetch(url, { method: "PUT", headers, body });
-  if (!putRes.ok) {
-    const txt = (await putRes.text()).slice(0, 200);
-    throw new Error(`GH PUT ${path} ${putRes.status}: ${txt}`);
+  if (!res.ok) {
+    const txt = (await res.text()).slice(0, 200);
+    throw new Error(`GH PUT ${path} ${res.status}: ${txt}`);
   }
+
+  const respJson = await res.json();
+  const newSha = respJson?.content?.sha;
+  if (newSha) await env.IMGUR_KV.put(shaKey, newSha);
   return { path, status: "committed" };
 }
 
