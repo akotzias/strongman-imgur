@@ -12,6 +12,70 @@ const cors = {
   "access-control-allow-methods": "GET, OPTIONS",
 };
 
+const GH_OWNER = "akotzias";
+const GH_REPO = "strongman-imgur";
+
+function utf8ToBase64(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
+async function ghPushFile(env, path, content, commitMessage) {
+  const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${path}`;
+  const headers = {
+    "Authorization": `Bearer ${env.GH_TOKEN}`,
+    "User-Agent": UA,
+    "Accept": "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+
+  let sha = null;
+  let existing = null;
+  const getRes = await fetch(url, { headers });
+  if (getRes.ok) {
+    const meta = await getRes.json();
+    sha = meta.sha;
+    existing = (meta.content || "").replace(/\s/g, "");
+  } else if (getRes.status !== 404) {
+    throw new Error(`GH GET ${path} ${getRes.status}`);
+  }
+
+  const newB64 = utf8ToBase64(content);
+  if (existing && existing === newB64) {
+    return { path, status: "unchanged" };
+  }
+
+  const body = JSON.stringify({
+    message: commitMessage,
+    content: newB64,
+    ...(sha ? { sha } : {}),
+  });
+  const putRes = await fetch(url, { method: "PUT", headers, body });
+  if (!putRes.ok) {
+    const txt = (await putRes.text()).slice(0, 200);
+    throw new Error(`GH PUT ${path} ${putRes.status}: ${txt}`);
+  }
+  return { path, status: "committed" };
+}
+
+async function pushArtifactsToGitHub(env, dataView, fullState) {
+  if (!env.GH_TOKEN) return { skipped: "no GH_TOKEN" };
+  const ts = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+  const dataContent = JSON.stringify(dataView, null, 2) + "\n";
+  const stateContent = JSON.stringify(fullState, null, 2) + "\n";
+  const out = [];
+  try {
+    out.push(await ghPushFile(env, "public/data.json", dataContent, `Sync ${ts} from Worker (data)`));
+  } catch (e) {
+    out.push({ path: "public/data.json", error: e.message });
+  }
+  try {
+    out.push(await ghPushFile(env, "backups/state.json", stateContent, `Sync ${ts} from Worker (state)`));
+  } catch (e) {
+    out.push({ path: "backups/state.json", error: e.message });
+  }
+  return out;
+}
+
 async function fetchJSON(url) {
   const res = await fetch(url, { headers: { "user-agent": UA }, cf: { cacheTtl: 0 } });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url.slice(0, 80)}`);
@@ -262,10 +326,17 @@ export default {
 
     if (url.pathname === "/trigger") {
       const { dataView, debug } = await tick(env);
+      let push = null;
+      if (url.searchParams.get("push") === "1") {
+        const stateRaw = await env.IMGUR_KV.get(STATE_KEY);
+        const fullState = stateRaw ? JSON.parse(stateRaw) : {};
+        push = await pushArtifactsToGitHub(env, dataView, fullState);
+      }
       return new Response(
         JSON.stringify({
           ok: true,
           generated_at: dataView.generated_at,
+          push,
           threads: dataView.threads.map((t) => ({
             id: t.id,
             entries: t.entries.length,
@@ -294,7 +365,15 @@ export default {
   },
 
   async scheduled(_event, env, _ctx) {
-    const { debug } = await tick(env);
+    const { dataView, debug } = await tick(env);
     console.log("scheduled tick debug:", JSON.stringify(debug));
+    try {
+      const stateRaw = await env.IMGUR_KV.get(STATE_KEY);
+      const fullState = stateRaw ? JSON.parse(stateRaw) : {};
+      const ghResults = await pushArtifactsToGitHub(env, dataView, fullState);
+      console.log("github push:", JSON.stringify(ghResults));
+    } catch (e) {
+      console.warn("github push failed:", e.message);
+    }
   },
 };
