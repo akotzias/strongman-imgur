@@ -9,13 +9,20 @@ Static site that lists every Reddit comment containing an imgur link from a cura
 ```
 threads.json  ──►  Cloudflare Worker  ──►  Workers KV  ──►  GitHub Pages site
                    (cron every 5 min)      (data + state)    (polls every 60s)
+                            ▲                    │
+                            │                    ▼
+                            │             /state.json
+                            │                    │
+                       wrangler            hourly GH Action
+                       restore             commits backups/state.json
 ```
 
-Three moving parts:
+Four moving parts:
 
 1. **GitHub Pages site** (`public/`) — a static page that fetches `data.json` from the Worker and renders the entries. No build step; deployed via `.github/workflows/update.yml` on every push.
 2. **Cloudflare Worker** (`worker/`) — runs a 5-minute cron, scrapes Reddit, stores results in KV, serves them as a CORS-enabled JSON endpoint.
 3. **Workers KV** — Cloudflare's edge key-value store; this is where the data actually lives between cron ticks.
+4. **Hourly state backup** (`.github/workflows/backup-state.yml`) — pulls the Worker's `/state.json`, commits `backups/state.json` so the full state survives even if KV is wiped.
 
 ### Why a Worker (and not just GitHub Actions)
 
@@ -28,7 +35,9 @@ In Cloudflare Workers KV, namespace `IMGUR_KV` (id `8dbddb7408e543828a0fad2ff2e9
 - **`state`** — internal: per-thread `seen_ids`, the imgur entries collected so far, the queue of unfinished `morechildren` batches, and the last-tick timestamp. The cron reads this, augments it, writes it back.
 - **`data`** — public-facing: stripped-down JSON the page reads from `GET /data.json`. Contains entries, comment counts, and `backfill_pending`.
 
-KV values are replicated across Cloudflare's edge and survive restarts/deploys. Free tier comfortably covers our usage (~288 writes/day, well under the 1k/day limit).
+KV values are replicated across Cloudflare's edge and survive restarts/deploys. Free tier comfortably covers our usage (~288 writes/day, well under the 1k/day limit). The 1k/day write limit is the binding constraint on cron frequency: each tick writes 2 keys, so the absolute maximum is ~500 ticks/day (every 3 min). The 5-min schedule was chosen to leave headroom.
+
+As a belt-and-braces measure against KV loss, the full `state` is also mirrored to `backups/state.json` in this repo by an hourly GitHub Action — see [State backup](#state-backup) below.
 
 ### How a cron tick works
 
@@ -52,13 +61,17 @@ strongman-imgur/
 ├── worker/                    Cloudflare Worker source
 │   ├── src/index.js           cron + HTTP handlers
 │   └── wrangler.toml          worker config (cron, KV binding)
+├── backups/
+│   └── state.json             hourly snapshot of KV `state` (auto-committed)
 └── .github/workflows/
-    └── update.yml             GH Pages deploy on push to main
+    ├── update.yml             GH Pages deploy on push to public/
+    └── backup-state.yml       hourly state snapshot to backups/
 ```
 
 ## Worker endpoints
 
 - `GET /data.json` — returns the cached output for the page. CORS open. Cached at the edge for 30s.
+- `GET /state.json` — returns the full internal state JSON. Used by the hourly backup workflow.
 - `GET /trigger` — runs a tick immediately (manual seed/refresh). Useful after deploying changes.
 - `GET /reset` — wipes both KV keys. Use only for debugging.
 - `GET /` — friendly status banner.
@@ -104,6 +117,30 @@ wrangler dev
 ```
 
 Spins up a local edge runtime with KV emulation. Hit `http://localhost:8787/trigger` to test.
+
+### State backup
+
+`.github/workflows/backup-state.yml` runs every hour at minute `:17` (and on manual dispatch). It does:
+
+1. `curl https://strongman-imgur.akotzias-dev.workers.dev/state.json` → pretty-prints the JSON → writes to `backups/state.json`.
+2. Stages the file, commits only if the contents changed, pushes.
+
+The `update.yml` deploy workflow has `paths: ["public/**", ".github/workflows/update.yml"]`, so backup commits don't trigger a Pages redeploy.
+
+**To restore** the Worker's KV from the backup (if KV is ever wiped):
+
+```sh
+cd worker
+wrangler kv key put --binding=IMGUR_KV state "$(cat ../backups/state.json)"
+```
+
+Then hit `/trigger` to regenerate the public-facing `data` key from the restored `state`.
+
+**To trigger a backup manually** (e.g. before doing something risky):
+
+```sh
+gh workflow run backup-state.yml --repo akotzias/strongman-imgur
+```
 
 ## Deploy
 
