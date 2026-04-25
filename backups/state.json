@@ -1257,47 +1257,6 @@
         {
           "kind": "ids",
           "ids": [
-            "oi475gc"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi6teh2"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi40i2k"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi615jn",
-            "oi64b75",
-            "oi612z5"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi543jk",
-            "oi3y27g",
-            "oi5zws8",
-            "oi5gdql",
-            "oi5jhik",
-            "oi65z0z",
-            "oi42gzo",
-            "oi5916j",
-            "oi5z8cp",
-            "oi3ysng"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
             "oi72zg1"
           ]
         },
@@ -3186,10 +3145,51 @@
           "ids": [
             "oi73x97"
           ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi475gc"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi6teh2"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi40i2k"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi615jn",
+            "oi64b75",
+            "oi612z5"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi543jk",
+            "oi3y27g",
+            "oi5zws8",
+            "oi5gdql",
+            "oi5jhik",
+            "oi65z0z",
+            "oi42gzo",
+            "oi5916j",
+            "oi5z8cp",
+            "oi3ysng"
+          ]
         }
       ],
       "total_comments_reported": 1102,
-      "last_tick_utc": 1777146032
+      "last_tick_utc": 1777146332
     },
     "1st43jg": {
       "seen_ids": [
@@ -8480,41 +8480,6 @@
         }
       ],
       "expansion_queue": [
-        {
-          "kind": "ids",
-          "ids": [
-            "oi1vqni",
-            "oi1lx8j",
-            "oi1px8f",
-            "oi1m7t5",
-            "oi1qf8e"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi2rccb"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi33n3y"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi35xev"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi30v8p",
-            "oi30nuj"
-          ]
-        },
         {
           "kind": "ids",
           "ids": [
@@ -117263,11 +117228,46 @@
           "ids": [
             "oi1oecr"
           ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi1vqni",
+            "oi1lx8j",
+            "oi1px8f",
+            "oi1m7t5",
+            "oi1qf8e"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi2rccb"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi33n3y"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi35xev"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi30v8p",
+            "oi30nuj"
+          ]
         }
       ],
       "total_comments_reported": 4322,
-      "last_tick_utc": 1777146034
+      "last_tick_utc": 1777146334
     }
   },
-  "generated_at": "2026-04-25T19:40:34.385Z"
+  "generated_at": "2026-04-25T19:45:34.025Z"
 }
