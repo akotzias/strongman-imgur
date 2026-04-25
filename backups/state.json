@@ -1561,36 +1561,6 @@
         {
           "kind": "ids",
           "ids": [
-            "oi69yj0"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi4xzj1"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi4wg0u"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi4wezg"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi4u5h8"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
             "oi73x97"
           ]
         },
@@ -3941,10 +3911,40 @@
           "ids": [
             "oi6a15u"
           ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi69yj0"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi4xzj1"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi4wg0u"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi4wezg"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi4u5h8"
+          ]
         }
       ],
       "total_comments_reported": 1349,
-      "last_tick_utc": 1777146932
+      "last_tick_utc": 1777147236
     },
     "1st43jg": {
       "seen_ids": [
@@ -9237,42 +9237,6 @@
         }
       ],
       "expansion_queue": [
-        {
-          "kind": "ids",
-          "ids": [
-            "oi2ofif"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi2pxob",
-            "oi2p08a"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi3094w",
-            "oi2zgq2"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi2z5ml"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi31qvb",
-            "oi31sdt",
-            "oi31466",
-            "oi31k5e",
-            "oi31e02"
-          ]
-        },
         {
           "kind": "ids",
           "ids": [
@@ -119219,11 +119183,47 @@
           "ids": [
             "oi34ocq"
           ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi2ofif"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi2pxob",
+            "oi2p08a"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi3094w",
+            "oi2zgq2"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi2z5ml"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi31qvb",
+            "oi31sdt",
+            "oi31466",
+            "oi31k5e",
+            "oi31e02"
+          ]
         }
       ],
       "total_comments_reported": 4323,
-      "last_tick_utc": 1777146934
+      "last_tick_utc": 1777147237
     }
   },
-  "generated_at": "2026-04-25T19:55:34.067Z"
+  "generated_at": "2026-04-25T20:00:37.890Z"
 }
