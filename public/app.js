@@ -35,11 +35,12 @@ function linkify(body) {
 function scanStatus(t) {
   const n = t.entries.length;
   const noun = n === 1 ? "imgur post" : "imgur posts";
+  const fmt = (x) => x.toLocaleString();
   if (t.backfill_pending && t.total_comments_reported) {
     const pct = Math.round((t.total_comments_loaded / t.total_comments_reported) * 100);
-    return `${n} ${noun} · scan ${pct}% complete — older comments may still be missing.`;
+    return `${n} ${noun} · scan ${pct}% complete (${fmt(t.total_comments_loaded)} / ${fmt(t.total_comments_reported)} comments) — older comments may still be missing.`;
   }
-  return `${n} ${noun} · scan complete (${t.total_comments_loaded} comments).`;
+  return `${n} ${noun} · scan complete (${fmt(t.total_comments_loaded)} comments).`;
 }
 
 function renderEntry(e) {
