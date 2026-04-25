@@ -38,10 +38,11 @@ details.thread > summary {
 }
 details.thread > summary::-webkit-details-marker { display: none; }
 details.thread > summary::before {
-  content: "▸";
+  content: "▶";
   display: inline-block;
-  width: 0.9em;
-  color: var(--muted);
+  width: 1.2em;
+  font-size: 1.1em;
+  color: var(--accent);
   transition: transform 0.15s;
 }
 details.thread[open] > summary::before { transform: rotate(90deg); }
