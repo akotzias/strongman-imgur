@@ -109,6 +109,7 @@ async function tickThread(threadConfig, threadState, deadlineMs) {
   const queue = threadState.expansion_queue ? [...threadState.expansion_queue] : [];
   let totalReported = threadState.total_comments_reported ?? null;
   const isFirstRun = seen.size === 0;
+  const debug = { listing_error: null, expand_errors: [], expand_ok: 0 };
 
   const onComment = (c) => {
     const e = entryFromComment(c);
@@ -125,9 +126,16 @@ async function tickThread(threadConfig, threadState, deadlineMs) {
     walkListing(listing, seen, onComment, onMore);
   } catch (e) {
     console.warn(`listing ${id} failed: ${e.message}`);
+    debug.listing_error = e.message;
   }
 
-  while (queue.length && Date.now() < deadlineMs) {
+  let consecutiveFailures = 0;
+  const MAX_CONSECUTIVE_FAILURES = 5;
+  while (
+    queue.length &&
+    Date.now() < deadlineMs &&
+    consecutiveFailures < MAX_CONSECUTIVE_FAILURES
+  ) {
     const item = queue.shift();
     try {
       if (item.kind === "ids") {
@@ -143,10 +151,13 @@ async function tickThread(threadConfig, threadState, deadlineMs) {
           if (root.data.replies) walkListing(root.data.replies, seen, onComment, onMore);
         }
       }
+      consecutiveFailures = 0;
+      debug.expand_ok++;
     } catch (e) {
       console.warn(`expand ${id} failed: ${e.message}`);
-      queue.unshift(item);
-      break;
+      queue.push(item);
+      consecutiveFailures++;
+      if (debug.expand_errors.length < 5) debug.expand_errors.push(e.message);
     }
   }
 
@@ -154,11 +165,14 @@ async function tickThread(threadConfig, threadState, deadlineMs) {
     (a, b) => a.created_utc - b.created_utc
   );
   return {
-    seen_ids: [...seen],
-    entries,
-    expansion_queue: queue,
-    total_comments_reported: totalReported,
-    last_tick_utc: Math.floor(Date.now() / 1000),
+    state: {
+      seen_ids: [...seen],
+      entries,
+      expansion_queue: queue,
+      total_comments_reported: totalReported,
+      last_tick_utc: Math.floor(Date.now() / 1000),
+    },
+    debug,
   };
 }
 
@@ -169,6 +183,7 @@ async function tick(env) {
   const start = Date.now();
   const n = Math.max(threadConfigs.length, 1);
 
+  const debugByThread = {};
   for (let i = 0; i < threadConfigs.length; i++) {
     const tc = threadConfigs[i];
     const prior = state.threads[tc.id] || {
@@ -178,7 +193,9 @@ async function tick(env) {
       total_comments_reported: null,
     };
     const deadline = start + (TIME_BUDGET_MS * (i + 1)) / n;
-    state.threads[tc.id] = await tickThread(tc, prior, deadline);
+    const { state: updated, debug } = await tickThread(tc, prior, deadline);
+    state.threads[tc.id] = updated;
+    debugByThread[tc.id] = debug;
   }
 
   state.generated_at = new Date().toISOString();
@@ -201,7 +218,7 @@ async function tick(env) {
 
   await env.IMGUR_KV.put(STATE_KEY, JSON.stringify(state));
   await env.IMGUR_KV.put(DATA_KEY, JSON.stringify(dataView));
-  return dataView;
+  return { dataView, debug: debugByThread };
 }
 
 export default {
@@ -220,7 +237,7 @@ export default {
       return new Response(cached, {
         headers: {
           "content-type": "application/json",
-          "cache-control": "public, max-age=30",
+          "cache-control": "public, max-age=290, s-maxage=290",
           ...cors,
         },
       });
@@ -244,17 +261,18 @@ export default {
     }
 
     if (url.pathname === "/trigger") {
-      const data = await tick(env);
+      const { dataView, debug } = await tick(env);
       return new Response(
         JSON.stringify({
           ok: true,
-          generated_at: data.generated_at,
-          threads: data.threads.map((t) => ({
+          generated_at: dataView.generated_at,
+          threads: dataView.threads.map((t) => ({
             id: t.id,
             entries: t.entries.length,
             loaded: t.total_comments_loaded,
             reported: t.total_comments_reported,
             backfill_pending: t.backfill_pending,
+            debug: debug[t.id],
           })),
         }),
         { headers: { "content-type": "application/json", ...cors } }
@@ -276,6 +294,7 @@ export default {
   },
 
   async scheduled(_event, env, _ctx) {
-    await tick(env);
+    const { debug } = await tick(env);
+    console.log("scheduled tick debug:", JSON.stringify(debug));
   },
 };

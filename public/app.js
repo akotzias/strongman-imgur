@@ -1,5 +1,4 @@
 const WORKER_URL = "https://strongman-imgur.akotzias-dev.workers.dev/data.json";
-const POLL_MS = 60_000;
 
 const fmtDate = (utc) => new Date(utc * 1000).toLocaleString();
 const escapeHTML = (s) =>
@@ -49,7 +48,7 @@ function renderEntry(e) {
 async function refresh() {
   const root = document.getElementById("threads");
   const generated = document.getElementById("generated");
-  const res = await fetch(WORKER_URL, { cache: "no-cache" });
+  const res = await fetch(WORKER_URL);
   if (!res.ok) {
     if (res.status === 503) {
       generated.textContent = "Worker is warming up — retrying in 60s.";
@@ -61,7 +60,7 @@ async function refresh() {
   const data = await res.json();
   generated.textContent =
     `Last server update: ${new Date(data.generated_at).toLocaleString()} · ` +
-    `client refreshes every 60s.`;
+    `reload the page to refresh.`;
 
   root.innerHTML = "";
   for (const t of data.threads) {
@@ -82,9 +81,4 @@ async function refresh() {
   }
 }
 
-async function main() {
-  await refresh();
-  setInterval(refresh, POLL_MS);
-}
-
-main();
+refresh();
