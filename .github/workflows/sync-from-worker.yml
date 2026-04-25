@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: sync-from-worker
@@ -32,13 +33,22 @@ jobs:
           rm public/.data.raw backups/.state.raw
 
       - name: Commit if changed
+        id: commit
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
           git add public/data.json backups/state.json
           if git diff --cached --quiet; then
             echo "no change"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git commit -m "Sync $(date -u +%Y-%m-%dT%H:%MZ) from Worker"
           git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger Pages deploy
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run update.yml --ref main
