@@ -216,17 +216,17 @@ function renderData(data) {
     `Last server update: ${new Date(data.generated_at).toLocaleString()}`;
   root.innerHTML = "";
   for (const t of data.threads) {
-    const section = document.createElement("section");
-    const h2 = document.createElement("h2");
-    h2.innerHTML = `<a href="${t.url}" target="_blank" rel="noopener">${escapeHTML(t.title)}</a>`;
-    section.appendChild(h2);
-    const summary = document.createElement("p");
-    summary.className = "empty";
-    summary.textContent = scanStatus(t);
-    section.appendChild(summary);
+    const details = document.createElement("details");
+    details.className = "thread";
+    const summary = document.createElement("summary");
+    summary.innerHTML = `
+      <h2><a href="${t.url}" target="_blank" rel="noopener">${escapeHTML(t.title)}</a></h2>
+      <span class="thread-status">${escapeHTML(scanStatus(t))}</span>
+    `;
+    details.appendChild(summary);
     const newestFirst = [...t.entries].sort((a, b) => b.created_utc - a.created_utc);
-    for (const e of newestFirst) section.appendChild(renderEntry(e));
-    root.appendChild(section);
+    for (const e of newestFirst) details.appendChild(renderEntry(e));
+    root.appendChild(details);
   }
   if (mediaMode) setupLazyHydration(root);
 }

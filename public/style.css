@@ -16,9 +16,38 @@ main {
   padding-right: max(1rem, env(safe-area-inset-right));
 }
 h1 { margin: 0 0 0.25rem; font-size: 1.5rem; line-height: 1.2; }
-h2 { margin: 2rem 0 0.5rem; font-size: 1.15rem; }
+h2 { margin: 0; font-size: 1.15rem; display: inline; }
 h2 a { color: inherit; text-decoration: none; }
 h2 a:hover { text-decoration: underline; }
+
+details.thread {
+  margin: 1.5rem 0 0;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+details.thread > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+  padding: 0.25rem 0;
+}
+details.thread > summary::-webkit-details-marker { display: none; }
+details.thread > summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 0.9em;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+details.thread[open] > summary::before { transform: rotate(90deg); }
+.thread-status {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
 #generated { color: var(--muted); font-size: 0.85rem; margin: 0 0 0.5rem; }
 
 .entry {
