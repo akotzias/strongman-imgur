@@ -64,10 +64,13 @@ Six things to know:
 For each thread in `public/threads.json`:
 
 1. **Incremental fetch** — `GET /comments/<id>.json?sort=new&limit=500`. Walk the listing; for any comment id not in `seen_ids`, extract imgur links and add to entries. New `more` stubs go into the expansion queue.
-2. **Drain backfill** — pop items off `expansion_queue` and call `morechildren` (or fetch the parent subtree for "continue this thread" stubs) until ~25s of wall time is used. Whatever's left stays in the queue for next tick.
+2. **Drain backfill** — pop items off `expansion_queue` and call `morechildren` (or fetch the parent subtree for "continue this thread" stubs) until **~20s** of wall time is used. Whatever's left stays in the queue for next tick.
 3. Save `state` and `data` back to KV.
+4. **Push to GitHub** under `ctx.waitUntil` — the GitHub Contents API roundtrips run as background work so they don't compete with the scrape budget. Cloudflare Workers' scheduled handler caps at ~30s wall-time total, so the 20s scrape + ~5s push + small overhead leaves headroom.
 
 Net effect: a fresh thread converges to 100% comment coverage over ~1 hour of cron ticks. Once converged, each tick is essentially free — just the incremental check.
+
+**Heartbeat:** `data.json` includes `generated_at`, so even a tick with no new comments produces a different blob and therefore a commit. That's deliberate — if `Sync ... from Worker (data)` commits stop appearing every 5 min, automation is broken and worth investigating.
 
 ### Where the data is saved
 

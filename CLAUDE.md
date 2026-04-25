@@ -5,9 +5,10 @@ This file is for AI assistants working on this repo. Read [`README.md`](./README
 ## Where to start
 
 - Architecture, ops, restore: `README.md`.
-- Live data the page uses: `public/data.json` (committed every 5 min by the sync workflow).
+- Live data the page uses: `public/data.json` (committed every 5 min — primarily by the Worker pushing directly to GitHub via the Contents API; `sync-from-worker.yml` is a fallback).
 - Worker source: `worker/src/index.js`. Wrangler config: `worker/wrangler.toml`. Deploy: `cd worker && wrangler deploy`.
 - The Worker URL is `https://strongman-imgur.akotzias-dev.workers.dev`. KV namespace `IMGUR_KV` id `8dbddb7408e543828a0fad2ff2e99339`.
+- Worker secret: `GH_TOKEN` is a fine-grained GitHub PAT (Contents: read+write, scoped to `akotzias/strongman-imgur`).
 
 ## Common gotchas
 
@@ -18,6 +19,10 @@ This file is for AI assistants working on this repo. Read [`README.md`](./README
 - **Reddit OAuth was tried and is currently unavailable.** The user attempted to register a "script" app at https://www.reddit.com/prefs/apps and got HTTP 500. Don't suggest OAuth as a quick fix — propose only as a multi-step path the user opts into.
 - **`backfill_pending` can grow even when scanning is converging.** Expanding a `morechildren` batch can return more `more` stubs (deeper subtrees). The meaningful progress metric is `total_comments_loaded / total_comments_reported`, not the queue size.
 - **GitHub Pages free tier soft-limits builds at ~10/hour.** `public/data.json` only commits when content actually changed, so we stay under in practice — but be aware if adding more cron-driven commit sources.
+- **Cloudflare Workers cron has a ~30s wall-time limit.** The scrape uses `TIME_BUDGET_MS = 20_000` to leave room for the GitHub push, and the push itself runs under `ctx.waitUntil` so it can finish past the main handler return. If you raise the scrape budget you'll likely break the cron-driven push silently — the data still lands in KV but the GitHub commit gets killed.
+- **The `data.json` heartbeat is intentional.** `data.json` includes `generated_at`, so every successful cron tick produces a different blob and therefore a commit. We rely on this as a liveness signal — if you see no `Sync ... from Worker (data)` commit in 10+ minutes, automation is broken. Don't normalize `generated_at` out of the diff without replacing it with another heartbeat.
+- **The state push under `ctx.waitUntil` is best-effort.** The data commit is reliable; the state commit may occasionally be killed by the runtime ending the worker. Acceptable because `state.json` is a backup, not consumed by the page.
+- **Storing a secret with `wrangler secret put`:** the argument is the variable NAME (e.g. `GH_TOKEN`), the prompt asks for the VALUE. Pasting the token into the name field leaks it (names appear in `wrangler secret list`, the dashboard, and shell history). If this happens: revoke the PAT immediately, regenerate, re-add via the prompt.
 
 ## Ops cheatsheet
 
