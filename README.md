@@ -1,17 +1,17 @@
 # strongman-imgur
 
-Static site that lists every Reddit comment containing an imgur link from a curated set of threads.
+Static site that lists every Reddit comment containing an imgur link from a curated set of threads. Fetching happens **client-side in the visitor's browser** (Reddit blocks GitHub Actions runner IPs), so the data is always live and refreshes every 60 seconds.
 
-## How it works
+## Layout
 
-- `threads.json` — list of Reddit threads to scrape (id, title, url).
-- `scripts/build.js` — fetches each thread's `.json`, walks all comments, extracts imgur URLs, writes `public/data.json`.
-- `public/` — the GitHub Pages site. Loads `data.json` on page load and renders one section per thread.
-- `.github/workflows/update.yml` — runs the build on push, on a 30-min cron, and on manual dispatch, then deploys `public/` to Pages.
+- `public/threads.json` — the list of threads to render: `{id, title, url}` per entry.
+- `public/app.js` — fetches `https://www.reddit.com/comments/<id>.json` for each thread, walks the comment tree, extracts imgur URLs, renders one section per thread.
+- `public/index.html` + `style.css` — the page.
+- `.github/workflows/update.yml` — deploys `public/` to GitHub Pages on push.
 
 ## Add another thread
 
-Append an entry to `threads.json`:
+Edit `public/threads.json` and append:
 
 ```json
 {
@@ -21,15 +21,12 @@ Append an entry to `threads.json`:
 }
 ```
 
-The `id` is the alphanumeric segment after `/comments/` in the URL. Push to `main` and the Action rebuilds.
+The `id` is the alphanumeric segment after `/comments/` in the URL. Push to `main` and Pages redeploys.
 
 ## Local
 
+Open `public/index.html` directly in a browser, or:
+
 ```sh
-node scripts/build.js
 python3 -m http.server -d public 8080
 ```
-
-## Setup notes
-
-After pushing the repo to GitHub: **Settings → Pages → Source: GitHub Actions**. The first push (or a manual `workflow_dispatch`) deploys.
