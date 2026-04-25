@@ -12,6 +12,8 @@ This file is for AI assistants working on this repo. Read [`README.md`](./README
 
 ## Common gotchas
 
+- **Always `cd worker && wrangler deploy`, never just `wrangler deploy` from the repo root.** Wrangler can't find a config at the root, so it runs an interactive init that auto-creates a `wrangler.jsonc` pointing `assets.directory` at `public/` and deploys a static-assets worker — which silently overwrites the real cron worker because both share the name `strongman-imgur`. Recovery: delete the stray `wrangler.jsonc` (and any `.gitignore` lines wrangler added), `cd worker`, redeploy.
+- **Cloudflare free-tier Worker has a 50-subrequest cap per invocation** (HTTP and cron). `tick()` uses `TIME_BUDGET_MS = 8_000` to keep morechildren expansions to ~12 per tick. The GitHub push uses cached SHAs in KV (`gh-sha:<path>`) to PUT directly, falling back to GET-then-PUT only on 422. Don't raise the budget or remove the SHA cache without recounting subrequests.
 - **Don't hit `/trigger` more than once per user request.** Each call makes ~30 anonymous Reddit requests. Repeated calls during debugging will cause Reddit to 403 the entire Cloudflare egress IP for ~30 min, stalling the cron too. To inspect data, read `/data.json` (KV-backed, no Reddit traffic). Only call `/trigger` if the user explicitly asks.
 - **Browser cache after `public/*` changes.** When the user reports the page still shows old UI/text after a deploy, it's almost always their browser caching `app.js`. Verify with a cache-busted curl, then tell them to hard-refresh (Cmd+Shift+R).
 - **Rejected tool calls don't undo file writes.** If the user rejects a commit, the modified file is still on disk. Avoid `git add -A` blindly afterwards — prefer `git add <specific paths>` and `git status --short` to verify.
@@ -23,6 +25,12 @@ This file is for AI assistants working on this repo. Read [`README.md`](./README
 - **The `data.json` heartbeat is intentional.** `data.json` includes `generated_at`, so every successful cron tick produces a different blob and therefore a commit. We rely on this as a liveness signal — if you see no `Sync ... from Worker (data)` commit in 10+ minutes, automation is broken. Don't normalize `generated_at` out of the diff without replacing it with another heartbeat.
 - **The state push under `ctx.waitUntil` is best-effort.** The data commit is reliable; the state commit may occasionally be killed by the runtime ending the worker. Acceptable because `state.json` is a backup, not consumed by the page.
 - **Storing a secret with `wrangler secret put`:** the argument is the variable NAME (e.g. `GH_TOKEN`), the prompt asks for the VALUE. Pasting the token into the name field leaks it (names appear in `wrangler secret list`, the dashboard, and shell history). If this happens: revoke the PAT immediately, regenerate, re-add via the prompt.
+
+## Page UI conventions
+
+- The first thread in `public/threads.json` is the active/featured one — it renders as a plain `<section>` (always visible). Every subsequent thread renders as a `<details>` (collapsed by default). Keep the active thread first.
+- An opt-in "Show images and videos inline" toggle (checkbox above the donate button) flips between a text-only links view (default) and an inline-media view that lazy-loads imgur images/videos/albums. Choice persists via `localStorage[strongman-imgur:media-mode]`. The default-off behavior is intentional — the page must work with zero third-party requests by default.
+- Cloudflare Web Analytics is wired in both `public/index.html` and `public/soph/index.html` via the `static.cloudflareinsights.com/beacon.min.js` script with token `2b8dcc8b20854fc58d0a9b4b3397ff98`. Dashboard: https://dash.cloudflare.com/cf98d411f226fa47cfa34d6f77c8f2fb/web-analytics
 
 ## Ops cheatsheet
 

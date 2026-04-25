@@ -64,21 +64,32 @@ Six things to know:
 For each thread in `public/threads.json`:
 
 1. **Incremental fetch** — `GET /comments/<id>.json?sort=new&limit=500`. Walk the listing; for any comment id not in `seen_ids`, extract imgur links and add to entries. New `more` stubs go into the expansion queue.
-2. **Drain backfill** — pop items off `expansion_queue` and call `morechildren` (or fetch the parent subtree for "continue this thread" stubs) until **~20s** of wall time is used. Whatever's left stays in the queue for next tick.
+2. **Drain backfill** — pop items off `expansion_queue` and call `morechildren` (or fetch the parent subtree for "continue this thread" stubs) until **~8s** of wall time is used. Whatever's left stays in the queue for next tick.
 3. Save `state` and `data` back to KV.
-4. **Push to GitHub** under `ctx.waitUntil` — the GitHub Contents API roundtrips run as background work so they don't compete with the scrape budget. Cloudflare Workers' scheduled handler caps at ~30s wall-time total, so the 20s scrape + ~5s push + small overhead leaves headroom.
+4. **Push to GitHub** under `ctx.waitUntil` — the GitHub Contents API roundtrips run as background work so they don't compete with the scrape budget. PUTs use a SHA cached in KV (`gh-sha:<path>`) to avoid a GET-then-PUT round-trip; if the SHA is stale (HTTP 422) the worker falls back to GET + retry once.
 
-Net effect: a fresh thread converges to 100% comment coverage over ~1 hour of cron ticks. Once converged, each tick is essentially free — just the incremental check.
+The hard constraint that drove these choices: **Cloudflare free-tier Workers cap each invocation at 50 subrequests** (HTTP and cron alike). With ~12 morechildren expansions + 2 listings + 1 threads.json fetch + 2 GH PUTs we land around ~17 subrequests per tick, comfortably under.
 
-**Heartbeat:** `data.json` includes `generated_at`, so even a tick with no new comments produces a different blob and therefore a commit. That's deliberate — if `Sync ... from Worker (data)` commits stop appearing every 5 min, automation is broken and worth investigating.
+Net effect: a fresh thread converges to 100% comment coverage over many cron ticks. Once converged, each tick is essentially free — just the incremental check.
+
+**Heartbeat:** `data.json` includes `generated_at`, so even a tick with no new comments produces a different blob and therefore a commit. That's deliberate — if `Sync ... from Worker (data)` commits stop appearing on schedule, automation is broken and worth investigating.
+
+**Cron cadence:** currently `*/30 * * * *` (every 30 min). Easy to dial up or down by editing `worker/wrangler.toml` and `cd worker && wrangler deploy`. The previous default was `*/5` during the active event; dropped to `*/30` once the event quieted down.
 
 ### Where the data is saved
 
 - **`public/data.json`** — committed to the repo by the Worker on every cron tick (and by the sync workflow as fallback). This is what the page actually reads. **Source of truth from the visitor's perspective.**
 - **`backups/state.json`** — committed alongside; full internal state, used to restore KV if needed.
-- **Cloudflare Workers KV**, namespace `IMGUR_KV` (id `8dbddb7408e543828a0fad2ff2e99339`) — under keys `data` and `state`. The cron writes here, then pushes the same content to GitHub. Considered transient — losable.
+- **Cloudflare Workers KV**, namespace `IMGUR_KV` (id `8dbddb7408e543828a0fad2ff2e99339`) — under keys `data` and `state`, plus `gh-sha:<path>` entries that cache the latest GitHub Contents SHA per file. The cron writes here, then pushes the same content to GitHub. Considered transient — losable.
 
-KV write budget on the free tier (1k/day) caps cron frequency at ~500 ticks/day; 288/day at 5-min is well under.
+KV write budget on the free tier (1k/day) caps cron frequency at ~500 ticks/day; well under at the current 30-min cadence (48/day).
+
+## Page UI
+
+- **Featured-thread convention.** The first entry in `public/threads.json` renders as a plain expanded `<section>`. Every thread after it renders as a `<details>` (collapsed by default, click the title row to expand). Order threads with the active/most-relevant one first.
+- **Inline-media toggle.** A checkbox above the donate button labelled "Show images and videos inline" flips between the default text-only view and an inline-media view that lazy-loads imgur images, videos, and albums (the last via imgur's official `embed.js`). The choice is persisted in `localStorage` under `strongman-imgur:media-mode`, default off, so a fresh visitor sees the lightweight version with no third-party requests.
+- **Cloudflare Web Analytics** is loaded on every page (`static.cloudflareinsights.com/beacon.min.js`). Stats at https://dash.cloudflare.com/cf98d411f226fa47cfa34d6f77c8f2fb/web-analytics — filter by path `/strongman-imgur/` to scope to this site.
+- **Easter egg page** at `/strongman-imgur/soph/` reuses the same `app.js`/`style.css` (via `<base href>`) and adds a small randomised gallery of Duke Nukem 1991 images from Wikipedia and the Internet Archive.
 
 ## Repo layout
 
@@ -88,13 +99,13 @@ strongman-imgur/
 │   ├── index.html
 │   ├── style.css
 │   ├── app.js                 fetches ./data.json, renders
-│   ├── threads.json           curated list of threads to scrape
-│   └── data.json              committed every 5 min by sync workflow
+│   ├── threads.json           curated list of threads to scrape (1st = featured/expanded)
+│   └── data.json              committed every cron tick by the Worker
 ├── worker/                    Cloudflare Worker source
 │   ├── src/index.js           cron + HTTP handlers
 │   └── wrangler.toml          worker config (cron, KV binding)
 ├── backups/
-│   └── state.json             committed every 5 min; full state for KV restore
+│   └── state.json             committed every cron tick; full state for KV restore
 └── .github/workflows/
     ├── update.yml             GH Pages deploy on push to public/
     └── sync-from-worker.yml   pulls Worker JSON and commits every 5 min
