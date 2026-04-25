@@ -215,7 +215,23 @@ function renderData(data) {
   generated.textContent =
     `Last server update: ${new Date(data.generated_at).toLocaleString()}`;
   root.innerHTML = "";
-  for (const t of data.threads) {
+  data.threads.forEach((t, i) => {
+    const newestFirst = [...t.entries].sort((a, b) => b.created_utc - a.created_utc);
+
+    // First thread is the active/featured one — render fully expanded,
+    // not foldable. Subsequent threads collapse by default.
+    if (i === 0) {
+      const section = document.createElement("section");
+      section.className = "thread thread-open";
+      section.innerHTML = `
+        <h2><a href="${t.url}" target="_blank" rel="noopener">${escapeHTML(t.title)}</a></h2>
+        <p class="thread-status">${escapeHTML(scanStatus(t))}</p>
+      `;
+      for (const e of newestFirst) section.appendChild(renderEntry(e));
+      root.appendChild(section);
+      return;
+    }
+
     const details = document.createElement("details");
     details.className = "thread";
     const summary = document.createElement("summary");
@@ -224,10 +240,9 @@ function renderData(data) {
       <span class="thread-status">${escapeHTML(scanStatus(t))}</span>
     `;
     details.appendChild(summary);
-    const newestFirst = [...t.entries].sort((a, b) => b.created_utc - a.created_utc);
     for (const e of newestFirst) details.appendChild(renderEntry(e));
     root.appendChild(details);
-  }
+  });
   if (mediaMode) setupLazyHydration(root);
 }
 
