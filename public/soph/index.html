@@ -7,10 +7,10 @@
     <title>World's Strongest Man 2026 imgur posts</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
-  <body data-theme="duke">
+  <body>
     <main>
       <h1>World's Strongest Man 2026 imgur posts</h1>
-      <p class="duke-tagline">Hail to the king, baby.</p>
+      <div class="duke-gallery" id="duke-gallery"></div>
       <p class="intro">
         Imgur links shared in r/StrongmanHQ's WSM 2026 megathreads, pulled together in one place.
       </p>
@@ -24,6 +24,25 @@
       </p>
       <div id="threads"></div>
     </main>
+    <script>
+      (() => {
+        const images = [
+          "https://upload.wikimedia.org/wikipedia/en/7/72/DukeNukem1Titlecard.gif",
+          "https://upload.wikimedia.org/wikipedia/en/b/b0/Dukenukem1.png",
+          "https://archive.org/serve/DukeNukem/DukeNukem-EpisodeOne-SharpnelCity1991apogeeSoftwareLtd.action_screenshot.gif",
+        ];
+        const shuffled = [...images].sort(() => Math.random() - 0.5);
+        const gallery = document.getElementById("duke-gallery");
+        for (const url of shuffled) {
+          const img = document.createElement("img");
+          img.src = url;
+          img.alt = "Duke Nukem (1991)";
+          img.loading = "lazy";
+          img.referrerPolicy = "no-referrer";
+          gallery.appendChild(img);
+        }
+      })();
+    </script>
     <script src="./app.js"></script>
   </body>
 </html>
