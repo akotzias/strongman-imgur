@@ -1,22 +1,90 @@
 const IMGUR_RE = /https?:\/\/(?:i\.|m\.)?imgur\.com\/[A-Za-z0-9./?=#&_-]+/gi;
 const POLL_MS = 60_000;
+const MORECHILDREN_BATCH = 100;
 
 const fmtDate = (utc) => new Date(utc * 1000).toLocaleString();
 const escapeHTML = (s) =>
   s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
-function* walkComments(listing) {
+function collectInto(listing, comments, moreQueue) {
   if (!listing || listing.kind !== "Listing") return;
-  for (const child of listing.data.children) {
-    if (child.kind !== "t1") continue;
-    yield child.data;
-    if (child.data.replies) yield* walkComments(child.data.replies);
+  for (const c of listing.data.children) {
+    if (c.kind === "t1") {
+      comments.push(c.data);
+      if (c.data.replies) collectInto(c.data.replies, comments, moreQueue);
+    } else if (c.kind === "more") {
+      if (c.data.children && c.data.children.length) {
+        moreQueue.push({ kind: "ids", ids: [...c.data.children] });
+      } else if (c.data.parent_id) {
+        moreQueue.push({ kind: "continue", parentId: c.data.parent_id });
+      }
+    }
   }
 }
 
-function extractEntries(redditJson) {
+async function fetchJSON(url) {
+  const res = await fetch(url, { cache: "no-cache" });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
+  return res.json();
+}
+
+async function fetchAllComments(threadId, onProgress) {
+  const data = await fetchJSON(
+    `https://www.reddit.com/comments/${threadId}.json?raw_json=1&limit=500`
+  );
+  const totalReported = data[0]?.data?.children?.[0]?.data?.num_comments ?? null;
+
+  const comments = [];
+  const moreQueue = [];
+  collectInto(data[1], comments, moreQueue);
+
+  while (moreQueue.length) {
+    onProgress?.(comments.length, totalReported, moreQueue.length);
+    const item = moreQueue.shift();
+    try {
+      const things = [];
+      if (item.kind === "ids") {
+        for (let j = 0; j < item.ids.length; j += MORECHILDREN_BATCH) {
+          const slice = item.ids.slice(j, j + MORECHILDREN_BATCH);
+          const u =
+            `https://www.reddit.com/api/morechildren.json?api_type=json&raw_json=1` +
+            `&link_id=t3_${threadId}&children=${slice.join(",")}`;
+          const j2 = await fetchJSON(u);
+          things.push(...(j2.json?.data?.things || []));
+        }
+      } else if (item.kind === "continue") {
+        const parentBase = item.parentId.replace(/^t1_/, "");
+        const u = `https://www.reddit.com/comments/${threadId}/_/${parentBase}.json?raw_json=1&limit=500`;
+        const j2 = await fetchJSON(u);
+        const root = j2[1]?.data?.children?.[0];
+        if (root?.kind === "t1") {
+          comments.push(root.data);
+          if (root.data.replies) collectInto(root.data.replies, comments, moreQueue);
+        }
+      }
+      for (const t of things) {
+        if (t.kind === "t1") {
+          comments.push(t.data);
+          if (t.data.replies) collectInto(t.data.replies, comments, moreQueue);
+        } else if (t.kind === "more") {
+          if (t.data.children?.length) moreQueue.push({ kind: "ids", ids: [...t.data.children] });
+          else if (t.data.parent_id) moreQueue.push({ kind: "continue", parentId: t.data.parent_id });
+        }
+      }
+    } catch (err) {
+      console.warn("expand failed", err);
+    }
+  }
+
+  // Dedupe by id (continue-thread fetches can overlap with morechildren).
+  const byId = new Map();
+  for (const c of comments) byId.set(c.id, c);
+  return { comments: [...byId.values()], totalReported };
+}
+
+function extractEntries(comments) {
   const entries = [];
-  for (const c of walkComments(redditJson[1])) {
+  for (const c of comments) {
     if (!c.body) continue;
     const found = c.body.match(IMGUR_RE) || [];
     if (!found.length) continue;
@@ -55,13 +123,6 @@ function renderEntry(e) {
   return div;
 }
 
-async function fetchThread(id) {
-  const url = `https://www.reddit.com/comments/${id}.json?raw_json=1&limit=500`;
-  const res = await fetch(url, { cache: "no-cache" });
-  if (!res.ok) throw new Error(`reddit ${id}: ${res.status} ${res.statusText}`);
-  return res.json();
-}
-
 async function refresh(threads) {
   const root = document.getElementById("threads");
   root.innerHTML = "";
@@ -77,17 +138,16 @@ async function refresh(threads) {
     root.appendChild(section);
 
     try {
-      const json = await fetchThread(t.id);
-      const entries = extractEntries(json);
+      const { comments, totalReported } = await fetchAllComments(t.id, (loaded, total, queued) => {
+        status.textContent = `Loading… ${loaded}${total ? ` / ${total}` : ""} comments, ${queued} batches queued`;
+      });
+      const entries = extractEntries(comments);
       section.removeChild(status);
-      if (!entries.length) {
-        const p = document.createElement("p");
-        p.className = "empty";
-        p.textContent = "No imgur links found in comments.";
-        section.appendChild(p);
-      } else {
-        for (const e of entries) section.appendChild(renderEntry(e));
-      }
+      const summary = document.createElement("p");
+      summary.className = "empty";
+      summary.textContent = `${entries.length} imgur posts in ${comments.length}${totalReported ? ` / ${totalReported}` : ""} comments.`;
+      section.appendChild(summary);
+      for (const e of entries) section.appendChild(renderEntry(e));
     } catch (err) {
       status.textContent = `Failed to load: ${err.message}`;
     }
