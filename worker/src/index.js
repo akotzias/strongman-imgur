@@ -5,7 +5,7 @@ const MORECHILDREN_BATCH = 100;
 const STATE_KEY = "state";
 const DATA_KEY = "data";
 const THREADS_URL = "https://akotzias.github.io/strongman-imgur/threads.json";
-const TIME_BUDGET_MS = 25_000;
+const TIME_BUDGET_MS = 20_000;
 
 const cors = {
   "access-control-allow-origin": "*",
@@ -364,16 +364,20 @@ export default {
     );
   },
 
-  async scheduled(_event, env, _ctx) {
+  async scheduled(_event, env, ctx) {
     const { dataView, debug } = await tick(env);
     console.log("scheduled tick debug:", JSON.stringify(debug));
-    try {
-      const stateRaw = await env.IMGUR_KV.get(STATE_KEY);
-      const fullState = stateRaw ? JSON.parse(stateRaw) : {};
-      const ghResults = await pushArtifactsToGitHub(env, dataView, fullState);
-      console.log("github push:", JSON.stringify(ghResults));
-    } catch (e) {
-      console.warn("github push failed:", e.message);
-    }
+    ctx.waitUntil(
+      (async () => {
+        try {
+          const stateRaw = await env.IMGUR_KV.get(STATE_KEY);
+          const fullState = stateRaw ? JSON.parse(stateRaw) : {};
+          const ghResults = await pushArtifactsToGitHub(env, dataView, fullState);
+          console.log("github push:", JSON.stringify(ghResults));
+        } catch (e) {
+          console.warn("github push failed:", e.message);
+        }
+      })()
+    );
   },
 };
