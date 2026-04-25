@@ -66,7 +66,7 @@ async function refresh() {
   }
   const data = await res.json();
   generated.textContent =
-    `Last server update: ${new Date(data.generated_at).toLocaleString()}`;
+    `Last server update: ${new Date(data.generated_at).toLocaleString()} — the page can lag a few minutes behind Reddit.`;
 
   root.innerHTML = "";
   for (const t of data.threads) {
