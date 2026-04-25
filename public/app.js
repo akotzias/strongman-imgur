@@ -32,6 +32,16 @@ function linkify(body) {
   return out.join("");
 }
 
+function scanStatus(t) {
+  const n = t.entries.length;
+  const noun = n === 1 ? "imgur post" : "imgur posts";
+  if (t.backfill_pending && t.total_comments_reported) {
+    const pct = Math.round((t.total_comments_loaded / t.total_comments_reported) * 100);
+    return `${n} ${noun} · scan ${pct}% complete — older comments may still be missing.`;
+  }
+  return `${n} ${noun} · scan complete (${t.total_comments_loaded} comments).`;
+}
+
 function renderEntry(e) {
   const div = document.createElement("div");
   div.className = "entry";
@@ -66,13 +76,10 @@ async function refresh() {
     section.appendChild(h2);
     const summary = document.createElement("p");
     summary.className = "empty";
-    const reported = t.total_comments_reported ?? "?";
-    const backlog = t.backfill_pending
-      ? ` · ${t.backfill_pending} backfill batches still queued`
-      : "";
-    summary.textContent = `${t.entries.length} imgur posts · ${t.total_comments_loaded} / ${reported} comments scanned${backlog}.`;
+    summary.textContent = scanStatus(t);
     section.appendChild(summary);
-    for (const e of t.entries) section.appendChild(renderEntry(e));
+    const newestFirst = [...t.entries].sort((a, b) => b.created_utc - a.created_utc);
+    for (const e of newestFirst) section.appendChild(renderEntry(e));
     root.appendChild(section);
   }
 }
