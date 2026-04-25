@@ -20,13 +20,10 @@ h2 { margin: 2rem 0 0.5rem; font-size: 1.15rem; }
 .entry .links { margin-top: 0.25rem; display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .entry .links a { font-size: 0.85rem; background: #eef3f8; padding: 0.15rem 0.45rem; border-radius: 4px; }
 .empty { color: #6b7785; font-style: italic; }
-footer {
-  margin-top: 3rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e5e7eb;
+.source-note {
   color: #6b7785;
-  font-size: 0.8rem;
-  text-align: center;
+  font-size: 0.85rem;
+  margin: 0 0 0.25rem;
 }
-footer a { color: #0079d3; text-decoration: none; }
-footer a:hover { text-decoration: underline; }
+.source-note a { color: #0079d3; text-decoration: none; }
+.source-note a:hover { text-decoration: underline; }
