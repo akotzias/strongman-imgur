@@ -1257,44 +1257,6 @@
         {
           "kind": "ids",
           "ids": [
-            "oi73x97"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi6teh2"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi40xqf"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi5gdql",
-            "oi5jhik",
-            "oi3y27g",
-            "oi543jk",
-            "oi5916j",
-            "oi42gzo",
-            "oi5zws8",
-            "oi5z8cp",
-            "oi3ysng"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi72zg1"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
             "oi7ejmu"
           ]
         },
@@ -3186,10 +3148,48 @@
           "ids": [
             "oi51ynf"
           ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi73x97"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi6teh2"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi40xqf"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi5gdql",
+            "oi5jhik",
+            "oi3y27g",
+            "oi543jk",
+            "oi5916j",
+            "oi42gzo",
+            "oi5zws8",
+            "oi5z8cp",
+            "oi3ysng"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi72zg1"
+          ]
         }
       ],
       "total_comments_reported": 1102,
-      "last_tick_utc": 1777144839
+      "last_tick_utc": 1777145132
     },
     "1st43jg": {
       "seen_ids": [
@@ -8480,72 +8480,6 @@
         }
       ],
       "expansion_queue": [
-        {
-          "kind": "ids",
-          "ids": [
-            "oi0kumt",
-            "oi0j47y"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "oi0t1wy"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "ohvfwai"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "ohwbrys",
-            "ohwcek5",
-            "ohwbsoo"
-          ]
-        },
-        {
-          "kind": "ids",
-          "ids": [
-            "ohtuohl",
-            "ohu7rew",
-            "ohude1l",
-            "ohvp1nr",
-            "ohx2cc7",
-            "ohuq3a3",
-            "ohvv8sm",
-            "ohwi9f5",
-            "ohvjmrl",
-            "ohvta89",
-            "oi0w5w8",
-            "ohu9uzx",
-            "ohva43j",
-            "ohu9w7h",
-            "ohu22bz",
-            "ohvg232",
-            "ohvvmd2",
-            "ohvrx5w",
-            "ohtfso8",
-            "ohwppgj",
-            "ohuqw59",
-            "ohtsp0m",
-            "ohtv383",
-            "ohua25c",
-            "ohvv4r0",
-            "ohvrurz",
-            "ohtyrj5",
-            "ohu8xr8",
-            "ohud2q3",
-            "ohva8d4",
-            "oi10jyb",
-            "ohwp90l",
-            "ohuehu0",
-            "ohwmytm"
-          ]
-        },
         {
           "kind": "ids",
           "ids": [
@@ -117263,11 +117197,77 @@
           "ids": [
             "oi0ka6t"
           ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi0kumt",
+            "oi0j47y"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "oi0t1wy"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "ohvfwai"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "ohwbrys",
+            "ohwcek5",
+            "ohwbsoo"
+          ]
+        },
+        {
+          "kind": "ids",
+          "ids": [
+            "ohtuohl",
+            "ohu7rew",
+            "ohude1l",
+            "ohvp1nr",
+            "ohx2cc7",
+            "ohuq3a3",
+            "ohvv8sm",
+            "ohwi9f5",
+            "ohvjmrl",
+            "ohvta89",
+            "oi0w5w8",
+            "ohu9uzx",
+            "ohva43j",
+            "ohu9w7h",
+            "ohu22bz",
+            "ohvg232",
+            "ohvvmd2",
+            "ohvrx5w",
+            "ohtfso8",
+            "ohwppgj",
+            "ohuqw59",
+            "ohtsp0m",
+            "ohtv383",
+            "ohua25c",
+            "ohvv4r0",
+            "ohvrurz",
+            "ohtyrj5",
+            "ohu8xr8",
+            "ohud2q3",
+            "ohva8d4",
+            "oi10jyb",
+            "ohwp90l",
+            "ohuehu0",
+            "ohwmytm"
+          ]
         }
       ],
       "total_comments_reported": 4322,
-      "last_tick_utc": 1777144839
+      "last_tick_utc": 1777145134
     }
   },
-  "generated_at": "2026-04-25T19:20:39.549Z"
+  "generated_at": "2026-04-25T19:25:34.371Z"
 }
