@@ -4,85 +4,39 @@ Static site that lists every Reddit comment containing an imgur link from a cura
 
 **Live:** https://akotzias.github.io/strongman-imgur/
 
-## Architecture
+> **Status: frozen.** This page is no longer being updated. The Cloudflare Worker that scraped Reddit and pushed fresh `data.json` commits was decommissioned on 2026-04-27; the page now serves whatever was committed last (see `public/data.json`). The static site itself, including the inline-media toggle and the Duke Nukem easter egg, still works.
+
+## Architecture (current — static only)
 
 ```
-                                          Reddit JSON API (anonymous, ~10 req/min)
-                                                     ▲
-                                                     │ once every 5 min
-                                                     │ (cron only)
-                                                     │
-   ┌────────────────────────────────────────────────────────────────────────────┐
-   │                       Cloudflare Worker                                    │
-   │  ┌─────────────────┐    ┌────────────────────────┐    ┌─────────────────┐  │
-   │  │ scheduled tick  │ ─► │  Workers KV            │ ◄─ │ GET /data.json  │  │
-   │  │ (cron */5 * *)  │    │  • state (full)        │    │ GET /state.json │  │
-   │  │  fetch + expand │    │  • data  (page-facing) │    └─────────────────┘  │
-   │  │  + push to GH   │    └────────────────────────┘                         │
-   │  └────────┬────────┘                                                       │
-   └───────────│────────────────────────────────────────────────────────────────┘
-               │ PUT /repos/akotzias/strongman-imgur/contents/...
-               │ (using GH_TOKEN secret = fine-grained PAT)
-               ▼
-   ┌─────────────────────────────────────────────┐
-   │  GitHub repo (akotzias/strongman-imgur)     │
-   │  • public/data.json     ← every cron tick   │
-   │  • backups/state.json   ← every cron tick   │
-   │                                              │
-   │  Fallback: sync-from-worker.yml runs every  │
-   │  5 min and pulls the same JSON from the      │
-   │  Worker if the push ever fails. Most ticks  │
-   │  it sees no diff and exits silently.        │
-   └────────────────────┬─────────────────────────┘
-                        │ push triggers update.yml
-                        ▼
-   ┌─────────────────────────────────────────┐    ┌──────────────────────────────┐
-   │      Visitor                            │ ─► │  GitHub Pages                │
-   │      one fetch on load,                 │    │  serves public/* incl.       │
-   │      no polling (reload to refresh)     │ ◄─ │  data.json (committed file)  │
-   └─────────────────────────────────────────┘    └──────────────────────────────┘
+   ┌─────────────────────────────┐    push to main (public/**)
+   │  GitHub repo                │ ───────────────┐
+   │  • public/data.json         │                ▼
+   │    (frozen snapshot)        │     ┌──────────────────────┐
+   │  • public/{index,app,…}     │     │ .github/workflows/   │
+   └─────────────────────────────┘     │ update.yml           │
+                                       │ uploads public/ to   │
+                                       │ GitHub Pages         │
+                                       └──────────┬───────────┘
+                                                  ▼
+   ┌─────────────────────────────┐     ┌──────────────────────┐
+   │  Visitor                    │ ──► │  GitHub Pages        │
+   │  one fetch on load          │ ◄── │  serves public/*     │
+   └─────────────────────────────┘     └──────────────────────┘
 ```
 
-Six things to know:
+The page does **one** `fetch('./data.json')` on load. No polling, no third-party requests by default. Data is whatever the last commit to `public/data.json` contains.
 
-1. **Cloudflare Worker** (`worker/`) — runs a `*/5 * * * *` cron. The cron is the **only** thing that talks to Reddit. The Worker holds `state` (internal accumulator) and `data` (page-facing JSON) in Workers KV.
-2. **Worker pushes directly to GitHub** — at the end of every cron tick, the Worker calls the GitHub Contents API to update `public/data.json` and `backups/state.json` (skipped if the content hasn't changed). Uses a fine-grained PAT stored as the `GH_TOKEN` Worker secret. This is the **primary update path** and is the reason the page is fresh within ~30s of every scrape.
-3. **Sync GitHub Action** (`.github/workflows/sync-from-worker.yml`) — also runs every 5 min and does the same thing via `curl`. Almost always a no-op now (Worker beat it to the punch). Kept as a fallback in case the Worker push fails or GH_TOKEN expires.
-4. **Deploy workflow** (`.github/workflows/update.yml`) — fires on every push that touches `public/**`. Uploads `public/` to GitHub Pages. Worker-authored pushes (under your PAT identity) trigger this normally.
-5. **GitHub Pages site** (`public/`) — a fully static page. On load, it does **one** `fetch('./data.json')` against the same origin. No live dependency on the Worker, no polling. Visitors must reload to see updates.
-6. **Worker is replaceable** — if Cloudflare disappears, the page keeps working with the last committed `data.json`. The cron + scrape + push logic could be moved elsewhere (Fly.io, a home server, etc.) and aimed at the same GitHub Contents API endpoint.
+## What was removed (2026-04-27)
 
-### Why this shape
+For history / future revival:
 
-- **Reddit blocks GitHub Actions runner IPs** (HTTP 403). Cloudflare's IPs aren't blocked, so the Reddit-facing scraper has to live there.
-- **Reddit's anonymous rate limit is ~10 req/min.** A single page-load worth of recursive `morechildren` expansion can exceed that, so we don't expose page reads to Reddit at all — the scrape is decoupled from page traffic.
-- **Persistent state** in KV means we converge to full coverage of huge threads (4k+ comments) over many cron ticks instead of trying to fit a 30-second-budget scan into a single request.
-- **Data in the repo** means: free static hosting (GitHub Pages), git history of every state, no live dependency on Cloudflare from the visitor's browser, easy disaster recovery.
+- **Cloudflare Worker** `strongman-imgur` (account `akotzias-dev`) — ran a `*/30 * * * *` cron that scraped Reddit and pushed `public/data.json` + `backups/state.json` directly to this repo via the GitHub Contents API.
+- **Workers KV namespace** `IMGUR_KV` (id `8dbddb7408e543828a0fad2ff2e99339`) — held `state` (full accumulator), `data` (page-facing JSON), and `gh-sha:<path>` cache entries.
+- **Sync GitHub Action** `.github/workflows/sync-from-worker.yml` — fallback cron that pulled the same JSON via `curl` if the Worker push failed.
+- **Fine-grained PAT** `GH_TOKEN` (Contents: read+write, scoped to `akotzias/strongman-imgur`) — Worker secret used for the direct push. Should be revoked at https://github.com/settings/personal-access-tokens.
 
-### How a cron tick works
-
-For each thread in `public/threads.json`:
-
-1. **Incremental fetch** — `GET /comments/<id>.json?sort=new&limit=500`. Walk the listing; for any comment id not in `seen_ids`, extract imgur links and add to entries. New `more` stubs go into the expansion queue.
-2. **Drain backfill** — pop items off `expansion_queue` and call `morechildren` (or fetch the parent subtree for "continue this thread" stubs) until **~8s** of wall time is used. Whatever's left stays in the queue for next tick.
-3. Save `state` and `data` back to KV.
-4. **Push to GitHub** under `ctx.waitUntil` — the GitHub Contents API roundtrips run as background work so they don't compete with the scrape budget. PUTs use a SHA cached in KV (`gh-sha:<path>`) to avoid a GET-then-PUT round-trip; if the SHA is stale (HTTP 422) the worker falls back to GET + retry once.
-
-The hard constraint that drove these choices: **Cloudflare free-tier Workers cap each invocation at 50 subrequests** (HTTP and cron alike). With ~12 morechildren expansions + 2 listings + 1 threads.json fetch + 2 GH PUTs we land around ~17 subrequests per tick, comfortably under.
-
-Net effect: a fresh thread converges to 100% comment coverage over many cron ticks. Once converged, each tick is essentially free — just the incremental check.
-
-**Heartbeat:** `data.json` includes `generated_at`, so even a tick with no new comments produces a different blob and therefore a commit. That's deliberate — if `Sync ... from Worker (data)` commits stop appearing on schedule, automation is broken and worth investigating.
-
-**Cron cadence:** currently `*/30 * * * *` (every 30 min). Easy to dial up or down by editing `worker/wrangler.toml` and `cd worker && wrangler deploy`. The previous default was `*/5` during the active event; dropped to `*/30` once the event quieted down.
-
-### Where the data is saved
-
-- **`public/data.json`** — committed to the repo by the Worker on every cron tick (and by the sync workflow as fallback). This is what the page actually reads. **Source of truth from the visitor's perspective.**
-- **`backups/state.json`** — committed alongside; full internal state, used to restore KV if needed.
-- **Cloudflare Workers KV**, namespace `IMGUR_KV` (id `8dbddb7408e543828a0fad2ff2e99339`) — under keys `data` and `state`, plus `gh-sha:<path>` entries that cache the latest GitHub Contents SHA per file. The cron writes here, then pushes the same content to GitHub. Considered transient — losable.
-
-KV write budget on the free tier (1k/day) caps cron frequency at ~500 ticks/day; well under at the current 30-min cadence (48/day).
+The Worker source lived at `worker/src/index.js` with `worker/wrangler.toml`. To revive: re-add the directory from git history (`git log -- worker/`), recreate the KV namespace (`wrangler kv namespace create IMGUR_KV` — new id, paste into `wrangler.toml`), re-add `GH_TOKEN` (`wrangler secret put GH_TOKEN`), `cd worker && wrangler deploy`. Reddit blocks GitHub Actions runner IPs but not Cloudflare's, which is the original reason scraping had to live on a Worker.
 
 ## Page UI
 
@@ -99,65 +53,15 @@ strongman-imgur/
 │   ├── index.html
 │   ├── style.css
 │   ├── app.js                 fetches ./data.json, renders
-│   ├── threads.json           curated list of threads to scrape (1st = featured/expanded)
-│   └── data.json              committed every cron tick by the Worker
-├── worker/                    Cloudflare Worker source
-│   ├── src/index.js           cron + HTTP handlers
-│   └── wrangler.toml          worker config (cron, KV binding)
+│   ├── threads.json           curated list of threads (1st = featured/expanded)
+│   └── data.json              frozen snapshot — last write 2026-04-27
 ├── backups/
-│   └── state.json             committed every cron tick; full state for KV restore
+│   └── state.json             last full state from the Worker (frozen)
 └── .github/workflows/
-    ├── update.yml             GH Pages deploy on push to public/
-    └── sync-from-worker.yml   pulls Worker JSON and commits every 5 min
+    └── update.yml             GH Pages deploy on push to public/
 ```
-
-## Worker endpoints
-
-- `GET /data.json` — page-facing JSON. Read by the sync workflow.
-- `GET /state.json` — full internal state. Read by the sync workflow.
-- `GET /trigger` — runs a tick immediately (manual seed/refresh). Use sparingly — each call makes ~30 Reddit requests and risks 429s on the shared CF egress.
-- `GET /trigger?push=1` — same, but also pushes the resulting `data.json` and `state.json` to GitHub immediately (uses `GH_TOKEN`).
-- `GET /reset` — wipes both KV keys. Debugging only.
-- `GET /` — status banner.
-
-## Worker secrets
-
-- `GH_TOKEN` — fine-grained GitHub PAT scoped to `akotzias/strongman-imgur` with **Contents: Read and write**. Used by the Worker to push commits directly. Set with:
-
-  ```sh
-  cd worker
-  wrangler secret put GH_TOKEN
-  # paste the token at the "Enter a secret value:" prompt
-  ```
-
-  ⚠ **The argument after `put` is the variable name (`GH_TOKEN`), not the token value.** Pasting the token as the name leaks it (secret names are not masked). If that happens: revoke the PAT at https://github.com/settings/personal-access-tokens, regenerate, and re-add via the prompt.
-
-  If `GH_TOKEN` is missing or invalid, the Worker silently skips the push; the sync workflow then catches up at its next run.
 
 ## Operations
-
-### Add a thread
-
-Edit `public/threads.json` and append:
-
-```json
-{
-  "id": "abc123",
-  "title": "Some other thread",
-  "url": "https://www.reddit.com/r/.../comments/abc123/..."
-}
-```
-
-Push to `main`. The Worker fetches `threads.json` from the live Pages URL on every cron tick, so the next tick (≤5 min later) will start scanning the new thread. No Worker redeploy needed.
-
-### Update the Worker
-
-```sh
-cd worker
-wrangler deploy
-```
-
-If the schema of the persisted `state` changes, hit `https://strongman-imgur.akotzias-dev.workers.dev/reset` once and then `/trigger` to seed fresh.
 
 ### Local site preview
 
@@ -167,33 +71,12 @@ python3 -m http.server -d public 8080
 
 Then open http://localhost:8080. Reads the committed `public/data.json` directly.
 
-### Local Worker development
+### Force-deploy
 
 ```sh
-cd worker
-wrangler dev
+gh workflow run update.yml --repo akotzias/strongman-imgur
 ```
 
-Spins up a local edge runtime with KV emulation. Hit `http://localhost:8787/trigger` to test.
+### Edit the page
 
-### Restore KV from backup
-
-If KV is ever wiped:
-
-```sh
-cd worker
-wrangler kv key put --binding=IMGUR_KV state "$(cat ../backups/state.json)"
-```
-
-Then hit `/trigger` to regenerate `data` from `state`.
-
-### Trigger sync manually
-
-```sh
-gh workflow run sync-from-worker.yml --repo akotzias/strongman-imgur
-```
-
-## Deploy
-
-- **Page**: pushing to `main` (with changes under `public/**`) triggers `.github/workflows/update.yml`, which uploads `public/` to GitHub Pages. Worker pushes (under your PAT identity) and sync-workflow commits both re-trigger this — that's how new data lands on the site.
-- **Worker**: deployed manually with `wrangler deploy` from `worker/`. Cron tick is `*/5 * * * *`. Cloudflare account: `akotzias-dev`. Requires the `GH_TOKEN` secret (see above).
+Push to `main` with changes under `public/**` and `update.yml` will redeploy GitHub Pages. The featured-thread convention and the inline-media toggle are documented above.
